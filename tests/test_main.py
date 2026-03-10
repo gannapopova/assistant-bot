@@ -4,6 +4,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 from colorama import Fore, init
 
 from classes import AddressBook, Record, Birthday, Phone
@@ -19,9 +20,16 @@ from commands import (
     delete_phone,
     find_phone_owner,
 )
-from helpers import parse_input, save_data, load_data
+from helpers import parse_input
 
 init(autoreset=True)
+
+
+def make_book():
+    """AddressBook with a mocked repository (no disk I/O)."""
+    repo = MagicMock()
+    repo.get_all.return_value = []
+    return AddressBook(repository=repo)
 
 
 def run_tests():
@@ -64,6 +72,18 @@ def run_tests():
     assert str(record.birthday) == "15.06.1990"
     assert "birthday: 15.06.1990" in str(record)
 
+    # --- Record to_dict / from_dict ---
+    record.add_phone("1234567890")
+    d = record.to_dict()
+    assert d["name"] == "John"
+    assert "1234567890" in d["phones"]
+    assert d["birthday"] == "15.06.1990"
+
+    restored = Record.from_dict(d)
+    assert restored.name.value == "John"
+    assert restored.find_phone("1234567890") == "1234567890"
+    assert str(restored.birthday) == "15.06.1990"
+
     # --- parse_input ---
     cmd, args = parse_input("add John 1234567890")
     assert cmd == "add"
@@ -76,7 +96,7 @@ def run_tests():
         pass
 
     # --- add_contact ---
-    book = AddressBook()
+    book = make_book()
     result = add_contact(["John", "1234567890"], book)
     assert "Contact added" in result
     result = add_contact(["John", "5555555555"], book)
@@ -120,7 +140,7 @@ def run_tests():
     assert "John" in result
     assert "Kate" in result
 
-    empty_result = show_all([], AddressBook())
+    empty_result = show_all([], make_book())
     assert "No contacts saved" in empty_result
 
     # --- add_birthday command ---
@@ -152,23 +172,19 @@ def run_tests():
 
     # --- get_upcoming_birthdays / birthdays command ---
     today = datetime.today().date()
-    fresh_book = AddressBook()
+    fresh_book = make_book()
 
-    # Birthday today
     add_contact(["Alice", "1111111111"], fresh_book)
     add_birthday(["Alice", today.strftime("%d.%m.1990")], fresh_book)
 
-    # Birthday in 3 days
     in_3 = (today + timedelta(days=3)).strftime("%d.%m.1985")
     add_contact(["Bob", "2222222222"], fresh_book)
     add_birthday(["Bob", in_3], fresh_book)
 
-    # Birthday in 9 days (outside window)
     in_9 = (today + timedelta(days=9)).strftime("%d.%m.1985")
     add_contact(["Charlie", "3333333333"], fresh_book)
     add_birthday(["Charlie", in_9], fresh_book)
 
-    # Contact with no birthday
     add_contact(["Dave", "4444444444"], fresh_book)
 
     upcoming = fresh_book.get_upcoming_birthdays()
@@ -178,7 +194,6 @@ def run_tests():
     assert "Charlie" not in names
     assert "Dave" not in names
 
-    # All congratulation dates must be weekdays (Mon–Fri)
     for u in upcoming:
         cong_date = datetime.strptime(u["congratulation_date"], "%d.%m.%Y").date()
         assert cong_date.weekday() < 5, f"{u['name']} congratulation falls on weekend"
@@ -186,7 +201,11 @@ def run_tests():
     result = birthdays([], fresh_book)
     assert any(name in result for name in ["Alice", "Bob"])
 
-    result = birthdays([], AddressBook())
+    # birthdays with custom days argument
+    result = birthdays(["30"], fresh_book)
+    assert "Charlie" in result
+
+    result = birthdays([], make_book())
     assert "No birthdays" in result
 
     # --- delete_contact ---
@@ -201,7 +220,7 @@ def run_tests():
     add_contact(["Bob", "7776665555"], book)
     result = delete_phone(["Bob", "7776665555"], book)
     assert "deleted" in result
-    assert book.find("Bob") is None  # auto-deleted when no phones left
+    assert book.find("Bob") is None
 
     # --- find_phone_owner ---
     add_contact(["Alice", "9998887777"], book)
@@ -210,78 +229,6 @@ def run_tests():
 
     result = find_phone_owner(["0000000000"], book)
     assert "not found" in result
-
-    # --- save_data / load_data ---
-    import tempfile
-    from pathlib import Path
-
-    with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-    bak_path = tmp_path.with_suffix(".bak")
-
-    try:
-        # basic save and load
-        save_book = AddressBook()
-        add_contact(["SavedUser", "1231231234"], save_book)
-        add_birthday(["SavedUser", "01.01.1990"], save_book)
-        save_data(save_book, tmp_path)
-
-        loaded_book = load_data(tmp_path)
-        loaded = loaded_book.find("SavedUser")
-        assert loaded is not None
-        assert loaded.find_phone("1231231234") == "1231231234"
-        assert str(loaded.birthday) == "01.01.1990"
-
-        # second save creates .bak with previous state
-        save_book_v2 = AddressBook()
-        add_contact(["NewUser", "9879879870"], save_book_v2)
-        save_data(save_book_v2, tmp_path)
-
-        assert bak_path.exists(), ".bak file should be created on second save"
-        bak_book = load_data(bak_path)
-        assert bak_book.find("SavedUser") is not None, ".bak should contain previous state"
-        assert bak_book.find("NewUser") is None
-
-        # main file has new state
-        current_book = load_data(tmp_path)
-        assert current_book.find("NewUser") is not None
-        assert current_book.find("SavedUser") is None
-
-        # no leftover .tmp file after save
-        assert not tmp_path.with_suffix(".tmp").exists(), ".tmp should be cleaned up after save"
-
-    finally:
-        tmp_path.unlink(missing_ok=True)
-        bak_path.unlink(missing_ok=True)
-
-    # load from non-existent file returns empty AddressBook
-    empty = load_data(Path("/nonexistent/path.pkl"))
-    assert isinstance(empty, AddressBook)
-    assert len(empty.data) == 0
-
-    # --- try/finally: save_data called on unexpected crash ---
-    import main as main_module
-    from unittest.mock import patch
-
-    for exception in (RuntimeError("crash"), KeyboardInterrupt()):
-        saved = []
-
-        def capture_save(book, *_args, **_kwargs):
-            saved.append(book)
-
-        test_book = AddressBook()
-        add_contact(["TestUser", "1234567890"], test_book)
-
-        with patch("builtins.input", side_effect=exception), \
-             patch.object(main_module, "load_data", return_value=test_book), \
-             patch.object(main_module, "save_data", side_effect=capture_save):
-            try:
-                main_module.main()
-            except type(exception):
-                pass
-
-        assert len(saved) == 1, f"save_data must be called on {type(exception).__name__}"
-        assert saved[0].find("TestUser") is not None
 
     print(f"{Fore.GREEN}All tests passed successfully!")
 

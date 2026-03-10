@@ -17,6 +17,7 @@ def add_contact(args, book: AddressBook):
         message = "Contact added."
     if phone:
         record.add_phone(phone)
+        book.save_record(record)
     return f"{Fore.BLUE}{message}"
 
 
@@ -29,6 +30,7 @@ def change_contact(args, book: AddressBook):
     if not record:
         raise KeyError
     if record.edit_phone(old_phone, new_phone):
+        book.save_record(record)
         return f"{Fore.BLUE}Phone updated."
     return f"{Fore.RED}Old phone not found."
 
@@ -71,6 +73,7 @@ def delete_phone(args, book: AddressBook):
     if not record.phones:
         book.delete(name)
         return f"{Fore.BLUE}Phone '{phone}' removed and contact '{name}' deleted (no phones left)."
+    book.save_record(record)
     return f"{Fore.BLUE}Phone '{phone}' removed from {name}."
 
 
