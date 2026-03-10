@@ -2,6 +2,7 @@ from collections import UserDict
 from datetime import datetime, timedelta
 
 from .fields import Name, Phone, Birthday
+from .repositories import ContactRepository
 
 
 class Record:
@@ -32,6 +33,22 @@ class Record:
     def add_birthday(self, value):
         self.birthday = Birthday(value)
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name.value,
+            "phones": [p.value for p in self.phones],
+            "birthday": str(self.birthday) if self.birthday else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Record":
+        record = cls(data["name"])
+        for phone in data.get("phones", []):
+            record.add_phone(phone)
+        if data.get("birthday"):
+            record.add_birthday(data["birthday"])
+        return record
+
     def __str__(self):
         phones_str = "; ".join(str(p) for p in self.phones) or "no phones"
         birthday_str = f", birthday: {self.birthday}" if self.birthday else ""
@@ -39,19 +56,35 @@ class Record:
 
 
 class AddressBook(UserDict):
-    def add_record(self, record):
-        self.data[record.name.value] = record
+    def __init__(self, repository: ContactRepository = None):
+        super().__init__()
+        self._repo = repository or ContactRepository()
+        self._load()
 
-    def find(self, name):
+    def _load(self):
+        for contact in self._repo.get_all():
+            record = Record.from_dict(contact)
+            self.data[record.name.value] = record
+
+    def add_record(self, record: Record):
+        self.data[record.name.value] = record
+        self._repo.upsert(record.to_dict())
+
+    def find(self, name: str) -> Record | None:
         return self.data.get(name)
 
-    def delete(self, name):
+    def delete(self, name: str) -> bool:
         if name in self.data:
             del self.data[name]
+            self._repo.delete(name)
             return True
         return False
 
-    def get_upcoming_birthdays(self) -> list:
+    def save_record(self, record: Record):
+        """Call after mutating an existing record."""
+        self._repo.upsert(record.to_dict())
+
+    def get_upcoming_birthdays(self, days: int = 7) -> list:
         today = datetime.today().date()
         upcoming = []
 
@@ -67,7 +100,7 @@ class AddressBook(UserDict):
 
             delta_days = (birthday_this_year - today).days
 
-            if 0 <= delta_days <= 7:
+            if 0 <= delta_days <= days:
                 congratulation_date = birthday_this_year
 
                 if congratulation_date.weekday() == 5:   # Saturday → Monday

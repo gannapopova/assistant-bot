@@ -14,7 +14,7 @@ from commands import (
     delete_phone,
     find_phone_owner,
 )
-from helpers import parse_input, save_data, load_data
+from helpers import parse_input
 
 init(autoreset=True)
 
@@ -34,29 +34,26 @@ COMMANDS = {
 
 
 def main():
-    book = load_data()
+    book = AddressBook()
     print(f"{Fore.MAGENTA}Welcome to the assistant bot!")
 
-    try:
-        while True:
-            user_input = input(f"{Fore.GREEN}Enter a command: ")
-            try:
-                command, args = parse_input(user_input)
-            except ValueError:
-                print(f"{Fore.RED}Please enter a command.")
-                continue
+    while True:
+        user_input = input(f"{Fore.GREEN}Enter a command: ")
+        try:
+            command, args = parse_input(user_input)
+        except ValueError:
+            print(f"{Fore.RED}Please enter a command.")
+            continue
 
-            if command in ["close", "exit"]:
-                print(f"{Fore.MAGENTA}Good bye!")
-                break
+        if command in ["close", "exit"]:
+            print(f"{Fore.MAGENTA}Good bye!")
+            break
 
-            handler = COMMANDS.get(command)
-            if handler:
-                print(handler(args, book))
-            else:
-                print(f"{Fore.RED}Invalid command.")
-    finally:
-        save_data(book)
+        handler = COMMANDS.get(command)
+        if handler:
+            print(handler(args, book))
+        else:
+            print(f"{Fore.RED}Invalid command.")
 
 
 if __name__ == "__main__":

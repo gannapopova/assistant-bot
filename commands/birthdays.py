@@ -15,6 +15,7 @@ def add_birthday(args, book: AddressBook):
     if not record:
         raise KeyError
     record.add_birthday(date)
+    book.save_record(record)
     return f"{Fore.BLUE}Birthday added."
 
 
@@ -32,8 +33,9 @@ def show_birthday(args, book: AddressBook):
 
 @input_error
 def birthdays(args, book: AddressBook):
-    upcoming = book.get_upcoming_birthdays()
+    days = int(args[0]) if args else 7
+    upcoming = book.get_upcoming_birthdays(days=days)
     if not upcoming:
-        return f"{Fore.BLUE}No birthdays in the next week."
+        return f"{Fore.BLUE}No birthdays in the next {days} days."
     lines = [f"{Fore.BLUE}{u['name']}: {u['congratulation_date']}" for u in upcoming]
     return "\n".join(lines)
