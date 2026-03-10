@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 from colorama import Fore, init
 
-from classes import AddressBook, Record, Birthday, Phone
+from classes import AddressBook, Record, Birthday, Phone, Email, Address
 from commands import (
     add_contact,
     change_contact,
@@ -83,6 +83,60 @@ def run_tests():
     assert restored.name.value == "John"
     assert restored.find_phone("1234567890") == "1234567890"
     assert str(restored.birthday) == "15.06.1990"
+
+    # --- Email validation ---
+    e = Email("user@example.com")
+    assert e.value == "user@example.com"
+
+    for bad in ["notanemail", "missing@", "@nodomain.com", "no-at-sign"]:
+        try:
+            Email(bad)
+            assert False, f"Should raise ValueError for: {bad}"
+        except ValueError:
+            pass
+
+    # --- Address validation ---
+    addr = Address(country="Ukraine", city="Kyiv", zip_code="01001")
+    assert addr.city == "Kyiv"
+    assert addr.zip_code == "01001"
+    assert "Kyiv" in str(addr)
+    assert "01001" in str(addr)
+
+    try:
+        Address(zip_code="ABC12")
+        assert False, "Should raise ValueError for non-digit zip"
+    except ValueError:
+        pass
+
+    # Empty address is falsy
+    assert not Address()
+
+    # Address to_dict / from_dict
+    d = addr.to_dict()
+    assert d["city"] == "Kyiv"
+    restored_addr = Address.from_dict(d)
+    assert restored_addr.city == "Kyiv"
+    assert restored_addr.zip_code == "01001"
+
+    # --- Record with email and address ---
+    rec = Record("Test")
+    rec.add_phone("1234567890")
+    rec.add_email("test@example.com")
+    rec.add_address(city="Lviv", street="Svobody", zip_code="79000")
+    assert rec.email.value == "test@example.com"
+    assert rec.address.city == "Lviv"
+    assert "email: test@example.com" in str(rec)
+    assert "address:" in str(rec)
+
+    # to_dict includes email and address
+    d = rec.to_dict()
+    assert d["email"] == "test@example.com"
+    assert d["address"]["city"] == "Lviv"
+
+    # from_dict restores email and address
+    restored = Record.from_dict(d)
+    assert restored.email.value == "test@example.com"
+    assert restored.address.city == "Lviv"
 
     # --- parse_input ---
     cmd, args = parse_input("add John 1234567890")

@@ -1,7 +1,7 @@
 from collections import UserDict
 from datetime import datetime, timedelta
 
-from .fields import Name, Phone, Birthday
+from .fields import Name, Phone, Birthday, Email, Address
 from .repositories import ContactRepository
 
 
@@ -10,6 +10,8 @@ class Record:
         self.name = Name(name)
         self.phones = []
         self.birthday = None
+        self.email = None
+        self.address = None
 
     def add_phone(self, phone_value):
         self.phones.append(Phone(phone_value))
@@ -33,11 +35,25 @@ class Record:
     def add_birthday(self, value):
         self.birthday = Birthday(value)
 
+    def add_email(self, value: str):
+        self.email = Email(value)
+
+    def edit_email(self, value: str):
+        self.email = Email(value)
+
+    def add_address(self, **kwargs):
+        self.address = Address(**kwargs)
+
+    def edit_address(self, **kwargs):
+        self.address = Address(**kwargs)
+
     def to_dict(self) -> dict:
         return {
             "name": self.name.value,
             "phones": [p.value for p in self.phones],
             "birthday": str(self.birthday) if self.birthday else None,
+            "email": self.email.value if self.email else None,
+            "address": self.address.to_dict() if self.address else None,
         }
 
     @classmethod
@@ -47,12 +63,22 @@ class Record:
             record.add_phone(phone)
         if data.get("birthday"):
             record.add_birthday(data["birthday"])
+        if data.get("email"):
+            record.add_email(data["email"])
+        if data.get("address"):
+            record.address = Address.from_dict(data["address"])
         return record
 
     def __str__(self):
         phones_str = "; ".join(str(p) for p in self.phones) or "no phones"
-        birthday_str = f", birthday: {self.birthday}" if self.birthday else ""
-        return f"{self.name}: {phones_str}{birthday_str}"
+        parts = [f"{self.name}: {phones_str}"]
+        if self.birthday:
+            parts.append(f"birthday: {self.birthday}")
+        if self.email:
+            parts.append(f"email: {self.email}")
+        if self.address:
+            parts.append(f"address: {self.address}")
+        return ", ".join(parts)
 
 
 class AddressBook(UserDict):
