@@ -13,6 +13,10 @@ from commands import (
     delete_contact,
     delete_phone,
     find_phone_owner,
+    add_email,
+    add_address,
+    search_contact,
+    edit_contact,
 )
 from helpers import parse_input
 
@@ -30,6 +34,10 @@ COMMANDS = {
     "delete-contact": delete_contact,
     "delete-phone":   delete_phone,
     "find-owner":     find_phone_owner,
+    "add-email":      add_email,
+    "add-address":    add_address,
+    "search":         search_contact,
+    "edit-contact":   edit_contact,
 }
 
 
