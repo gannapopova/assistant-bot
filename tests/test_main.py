@@ -19,6 +19,10 @@ from commands import (
     delete_contact,
     delete_phone,
     find_phone_owner,
+    add_email,
+    add_address,
+    search_contact,
+    edit_contact,
 )
 from helpers import parse_input
 
@@ -283,6 +287,53 @@ def run_tests():
 
     result = find_phone_owner(["0000000000"], book)
     assert "not found" in result
+
+    # --- add_email ---
+    add_contact(["EmailUser", "1234567890"], book)
+    result = add_email(["EmailUser", "user@test.com"], book)
+    assert "Email added" in result
+    assert book.find("EmailUser").email.value == "user@test.com"
+
+    result = add_email(["EmailUser", "bad-email"], book)
+    assert "Invalid arguments" in result
+
+    result = add_email(["Unknown", "user@test.com"], book)
+    assert "Contact not found" in result
+
+    # --- add_address ---
+    result = add_address(["EmailUser", "city=Kyiv", "zip_code=01001"], book)
+    assert "Address added" in result
+    assert book.find("EmailUser").address.city == "Kyiv"
+
+    result = add_address(["EmailUser", "zip_code=BADZIP"], book)
+    assert "Invalid arguments" in result
+
+    result = add_address(["Unknown", "city=Kyiv"], book)
+    assert "Contact not found" in result
+
+    # --- search_contact ---
+    result = search_contact(["EmailUser"], book)
+    assert "EmailUser" in result
+
+    result = search_contact(["user@test"], book)
+    assert "EmailUser" in result
+
+    result = search_contact(["nonexistent_xyz"], book)
+    assert "No contacts found" in result
+
+    # --- edit_contact ---
+    result = edit_contact(["EmailUser", "email", "new@test.com"], book)
+    assert "Contact updated" in result
+    assert book.find("EmailUser").email.value == "new@test.com"
+
+    result = edit_contact(["EmailUser", "birthday", "01.01.1990"], book)
+    assert "Contact updated" in result
+
+    result = edit_contact(["EmailUser", "unknown_field", "val"], book)
+    assert "Invalid arguments" in result
+
+    result = edit_contact(["Unknown", "email", "x@x.com"], book)
+    assert "Contact not found" in result
 
     print(f"{Fore.GREEN}All tests passed successfully!")
 
