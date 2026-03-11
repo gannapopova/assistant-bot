@@ -1,7 +1,7 @@
 import questionary
 from colorama import Fore, init
 
-from classes import AddressBook, Record
+from classes import AddressBook, NoteBook, Record
 
 init(autoreset=True)
 
@@ -18,12 +18,12 @@ def _print(msg: str):
 # Main menu
 # ─────────────────────────────────────────────
 
-def run_menu(book: AddressBook):
+def run_menu(book: AddressBook, notebook: NoteBook):
     print(f"{Fore.MAGENTA}Welcome to the assistant bot!")
     while True:
         choice = questionary.select(
             "Main Menu:",
-            choices=["Contacts", "Exit"],
+            choices=["Contacts", "Notes", "Exit"],
         ).ask()
 
         if choice is None or choice == "Exit":
@@ -31,6 +31,8 @@ def run_menu(book: AddressBook):
             break
         elif choice == "Contacts":
             _contacts_menu(book)
+        elif choice == "Notes":
+            _notes_menu(notebook)
 
 
 # ─────────────────────────────────────────────
@@ -339,4 +341,204 @@ def _upcoming_birthdays(book: AddressBook):
         _print(f"{Fore.BLUE}" + "\n".join(lines))
     else:
         _print(f"{Fore.BLUE}No birthdays in the next {days} days.")
+    _pause()
+
+
+# ─────────────────────────────────────────────
+# Notes menu
+# ─────────────────────────────────────────────
+
+def _notes_menu(notebook: NoteBook):
+    actions = {
+        "Add note":           _wizard_add_note,
+        "Show all notes":     _show_all_notes,
+        "Find note":          _find_note,
+        "Edit note":          _wizard_edit_note,
+        "Delete note":        _delete_note,
+        "Find by tag":        _find_by_tag,
+        "Show sorted by tags": _show_sorted_by_tags,
+    }
+    while True:
+        choice = questionary.select(
+            "Notes:",
+            choices=list(actions.keys()) + ["Back"],
+        ).ask()
+
+        if choice is None or choice == "Back":
+            break
+        actions[choice](notebook)
+
+
+# ─────────────────────────────────────────────
+# Add note wizard
+# ─────────────────────────────────────────────
+
+def _wizard_add_note(notebook: NoteBook):
+    text = questionary.text(
+        "Note text:",
+        validate=lambda v: True if v.strip() else "Text cannot be empty",
+    ).ask()
+    if text is None:
+        return
+
+    tags_input = questionary.text("Tags (optional, comma-separated):").ask()
+    tags = [t.strip().lower() for t in tags_input.split(",") if t.strip()] if tags_input else []
+
+    note = notebook.add(text.strip(), tags)
+    _print(f"{Fore.BLUE}Note saved:\n{note}")
+    _pause()
+
+
+# ─────────────────────────────────────────────
+# Show all notes
+# ─────────────────────────────────────────────
+
+def _show_all_notes(notebook: NoteBook):
+    notes = notebook.get_all()
+    if not notes:
+        _print(f"{Fore.BLUE}No notes saved.")
+    else:
+        _print(f"{Fore.BLUE}" + "\n\n".join(str(n) for n in notes))
+    _pause()
+
+
+# ─────────────────────────────────────────────
+# Find note
+# ─────────────────────────────────────────────
+
+def _find_note(notebook: NoteBook):
+    query = questionary.text("Search query:").ask()
+    if not query:
+        return
+    results = notebook.search(query)
+    if results:
+        _print(f"{Fore.BLUE}" + "\n\n".join(str(n) for n in results))
+    else:
+        _print(f"{Fore.YELLOW}No notes found.")
+    _pause()
+
+
+# ─────────────────────────────────────────────
+# Edit note wizard
+# ─────────────────────────────────────────────
+
+def _wizard_edit_note(notebook: NoteBook):
+    notes = notebook.get_all()
+    if not notes:
+        _print(f"{Fore.YELLOW}No notes to edit.")
+        _pause()
+        return
+
+    choices = [f"[{n.id[:8]}] {n.text[:50]}" for n in notes] + ["Cancel"]
+    selected = questionary.select("Select note:", choices=choices).ask()
+    if selected is None or selected == "Cancel":
+        return
+
+    note_id_prefix = selected[1:9]
+    note = next((n for n in notes if n.id.startswith(note_id_prefix)), None)
+    if not note:
+        return
+
+    while True:
+        choice = questionary.select(
+            f"Edit note [{note.id[:8]}]:",
+            choices=["Edit text", "Edit tags", "Done"],
+        ).ask()
+
+        if choice is None or choice == "Done":
+            break
+        elif choice == "Edit text":
+            new_text = questionary.text(
+                "New text:",
+                default=note.text,
+                validate=lambda v: True if v.strip() else "Text cannot be empty",
+            ).ask()
+            if new_text:
+                note.text = new_text.strip()
+                notebook.save_note(note)
+                _print(f"{Fore.BLUE}Text updated.")
+        elif choice == "Edit tags":
+            _edit_note_tags(note, notebook)
+
+
+def _edit_note_tags(note, notebook: NoteBook):
+    while True:
+        action = questionary.select(
+            f"Tags: {note.tags or 'none'}",
+            choices=["Add tag", "Remove tag", "Done"],
+        ).ask()
+
+        if action is None or action == "Done":
+            break
+        elif action == "Add tag":
+            tag = questionary.text("New tag:").ask()
+            if tag:
+                note.add_tag(tag)
+                notebook.save_note(note)
+                _print(f"{Fore.BLUE}Tag added.")
+        elif action == "Remove tag":
+            if not note.tags:
+                _print(f"{Fore.YELLOW}No tags to remove.")
+                continue
+            tag = questionary.select("Select tag to remove:", choices=note.tags + ["Cancel"]).ask()
+            if tag and tag != "Cancel":
+                note.remove_tag(tag)
+                notebook.save_note(note)
+                _print(f"{Fore.BLUE}Tag removed.")
+
+
+# ─────────────────────────────────────────────
+# Delete note
+# ─────────────────────────────────────────────
+
+def _delete_note(notebook: NoteBook):
+    notes = notebook.get_all()
+    if not notes:
+        _print(f"{Fore.YELLOW}No notes to delete.")
+        _pause()
+        return
+
+    choices = [f"[{n.id[:8]}] {n.text[:50]}" for n in notes] + ["Cancel"]
+    selected = questionary.select("Select note to delete:", choices=choices).ask()
+    if selected is None or selected == "Cancel":
+        return
+
+    note_id_prefix = selected[1:9]
+    note = next((n for n in notes if n.id.startswith(note_id_prefix)), None)
+    if not note:
+        return
+
+    confirmed = questionary.confirm(f"Delete this note?", default=False).ask()
+    if confirmed:
+        notebook.delete(note.id)
+        _print(f"{Fore.BLUE}Note deleted.")
+        _pause()
+
+
+# ─────────────────────────────────────────────
+# Find by tag
+# ─────────────────────────────────────────────
+
+def _find_by_tag(notebook: NoteBook):
+    tag = questionary.text("Tag:").ask()
+    if not tag:
+        return
+    results = notebook.find_by_tag(tag)
+    if results:
+        _print(f"{Fore.BLUE}" + "\n\n".join(str(n) for n in results))
+    else:
+        _print(f"{Fore.YELLOW}No notes with tag '{tag}'.")
+    _pause()
+
+
+# ─────────────────────────────────────────────
+# Show sorted by tags
+# ─────────────────────────────────────────────
+
+def _show_sorted_by_tags(notebook: NoteBook):
+    notes = notebook.get_all_sorted_by_tags()
+    if not notes:
+        _print(f"{Fore.BLUE}No notes saved.")
+    else:
+        _print(f"{Fore.BLUE}" + "\n\n".join(str(n) for n in notes))
     _pause()

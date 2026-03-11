@@ -5,3 +5,7 @@ from .contacts import (
 )
 from .birthdays import add_birthday, show_birthday, birthdays
 from .system import hello
+from .notes import (
+    add_note, show_notes, find_note, edit_note, delete_note,
+    add_tag, find_by_tag, show_notes_by_tags,
+)

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 from colorama import Fore, init
 
-from classes import AddressBook, Record, Birthday, Phone, Email, Address
+from classes import AddressBook, Record, Birthday, Phone, Email, Address, Note, NoteBook
 from commands import (
     add_contact,
     change_contact,
@@ -23,6 +23,8 @@ from commands import (
     add_address,
     search_contact,
     edit_contact,
+    add_note, show_notes, find_note, edit_note, delete_note,
+    add_tag, find_by_tag, show_notes_by_tags,
 )
 from helpers import parse_input
 
@@ -334,6 +336,95 @@ def run_tests():
 
     result = edit_contact(["Unknown", "email", "x@x.com"], book)
     assert "Contact not found" in result
+
+    # --- Notes ---
+
+    repo = MagicMock()
+    repo.get_all.return_value = []
+    notebook = NoteBook(repository=repo)
+
+    # --- Note class ---
+    note = Note("Hello world", tags=["python", "test"])
+    assert note.text == "Hello world"
+    assert "python" in note.tags
+    assert len(note.id) == 36  # uuid4 format
+    assert note.created_at is not None
+    assert "[" in str(note)
+
+    note.add_tag("newtag")
+    assert "newtag" in note.tags
+    note.add_tag("newtag")  # duplicate — should not add
+    assert note.tags.count("newtag") == 1
+
+    note.remove_tag("newtag")
+    assert "newtag" not in note.tags
+
+    d = note.to_dict()
+    assert d["text"] == "Hello world"
+    assert d["tags"] == ["python", "test"]
+    restored_note = Note.from_dict(d)
+    assert restored_note.id == note.id
+    assert restored_note.text == note.text
+
+    # --- add_note ---
+    result = add_note(["My", "first", "note"], notebook)
+    assert "Note added" in result
+    assert len(notebook.data) == 1
+
+    result = add_note([], notebook)
+    assert "Invalid arguments" in result
+
+    # --- show_notes ---
+    result = show_notes([], notebook)
+    assert "My first note" in result
+
+    result = show_notes([], NoteBook(repository=MagicMock(get_all=lambda: [])))
+    assert "No notes" in result
+
+    # --- find_note ---
+    add_note(["Another note about python"], notebook)
+    result = find_note(["python"], notebook)
+    assert "python" in result
+
+    result = find_note(["nonexistent_xyz"], notebook)
+    assert "No notes found" in result
+
+    # --- add_tag ---
+    note_id = list(notebook.data.keys())[0]
+    prefix = note_id[:8]
+    result = add_tag([prefix, "work"], notebook)
+    assert "Tag 'work' added" in result
+    assert "work" in notebook.data[note_id].tags
+
+    result = add_tag(["badprefix"], notebook)
+    assert "Invalid arguments" in result
+
+    # --- find_by_tag ---
+    result = find_by_tag(["work"], notebook)
+    assert "My first note" in result
+
+    result = find_by_tag(["notexist"], notebook)
+    assert "No notes" in result
+
+    # --- show_notes_by_tags ---
+    result = show_notes_by_tags([], notebook)
+    assert result  # returns something
+
+    # --- edit_note ---
+    result = edit_note([prefix, "Updated", "text"], notebook)
+    assert "Note updated" in result
+    assert notebook.data[note_id].text == "Updated text"
+
+    result = edit_note([prefix], notebook)
+    assert "Invalid arguments" in result
+
+    # --- delete_note ---
+    result = delete_note([prefix], notebook)
+    assert "Note deleted" in result
+    assert note_id not in notebook.data
+
+    result = delete_note(["badprefix"], notebook)
+    assert "not found" in result
 
     print(f"{Fore.GREEN}All tests passed successfully!")
 
