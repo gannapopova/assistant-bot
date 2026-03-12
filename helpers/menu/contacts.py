@@ -129,9 +129,9 @@ def _wizard_edit_contact(book: AddressBook):
     choices = [
         questionary.Choice(title=f"{r.name.value}{' ' + r.surname.value if r.surname else ''}", value=r.id)
         for r in records
-    ] + [questionary.Choice(title="Cancel", value=None)]
+    ] + ["Cancel"]
     selected_id = questionary.select("Select contact:", choices=choices).ask()
-    if selected_id is None:
+    if selected_id is None or selected_id == "Cancel":
         return
 
     record = book.data[selected_id]
@@ -276,9 +276,9 @@ def _delete_contact(book: AddressBook):
     choices = [
         questionary.Choice(title=f"{r.name.value}{' ' + r.surname.value if r.surname else ''}", value=r.id)
         for r in records
-    ] + [questionary.Choice(title="Cancel", value=None)]
+    ] + ["Cancel"]
     selected_id = questionary.select("Select contact to delete:", choices=choices).ask()
-    if selected_id is None:
+    if selected_id is None or selected_id == "Cancel":
         return
 
     record = book.data[selected_id]
