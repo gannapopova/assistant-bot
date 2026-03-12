@@ -1,4 +1,10 @@
-__pycache__
-.vscode
-.venv
+__pycache__/
+*.py[cod]
+.vscode/
+.venv/
 .DS_Store
+
+# Package build artifacts
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assistant-bot"
+version = "0.1.0"
+description = "Personal assistant CLI — contacts and notes manager"
+requires-python = ">=3.10"
+dependencies = [
+    "colorama",
+    "questionary",
+    "rich",
+]
+
+[project.scripts]
+assistant-bot = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
