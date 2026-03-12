@@ -1,7 +1,12 @@
 from collections import UserDict
+from datetime import datetime
 
 from .notes import Note
 from .repositories import NoteRepository
+
+
+def _now() -> str:
+    return datetime.now().strftime("%d.%m.%Y %H:%M")
 
 
 class NoteBook(UserDict):
@@ -32,6 +37,7 @@ class NoteBook(UserDict):
         return False
 
     def save_note(self, note: Note):
+        note.updated_at = _now()
         self._repo.upsert(note.to_dict())
 
     def get_all(self) -> list[Note]:

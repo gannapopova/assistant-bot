@@ -23,16 +23,16 @@ class ContactRepository:
     def upsert(self, contact: dict):
         contacts = self.get_all()
         for i, c in enumerate(contacts):
-            if c["name"] == contact["name"]:
+            if c.get("id") == contact["id"]:
                 contacts[i] = contact
                 self.save_all(contacts)
                 return
         contacts.append(contact)
         self.save_all(contacts)
 
-    def delete(self, name: str) -> bool:
+    def delete(self, record_id: str) -> bool:
         contacts = self.get_all()
-        filtered = [c for c in contacts if c["name"] != name]
+        filtered = [c for c in contacts if c.get("id") != record_id]
         if len(filtered) == len(contacts):
             return False
         self.save_all(filtered)

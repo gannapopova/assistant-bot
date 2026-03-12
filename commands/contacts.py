@@ -125,9 +125,11 @@ def delete_contact(args, book: AddressBook):
     if len(args) != 1:
         raise ValueError("Expected: delete-contact <name>")
     name = args[0]
-    if book.delete(name):
-        return f"{Fore.BLUE}Contact '{name}' deleted."
-    raise KeyError
+    record = book.find(name)
+    if not record:
+        raise KeyError
+    book.delete_by_id(record.id)
+    return f"{Fore.BLUE}Contact '{name}' deleted."
 
 
 @input_error
@@ -140,7 +142,7 @@ def delete_phone(args, book: AddressBook):
         raise KeyError
     record.remove_phone(phone)
     if not record.phones:
-        book.delete(name)
+        book.delete_by_id(record.id)
         return f"{Fore.BLUE}Phone '{phone}' removed and contact '{name}' deleted (no phones left)."
     book.save_record(record)
     return f"{Fore.BLUE}Phone '{phone}' removed from {name}."

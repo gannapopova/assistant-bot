@@ -71,6 +71,22 @@ def run_tests():
     except ValueError:
         pass
 
+    # --- Record.surname ---
+    rec_s = Record("John", surname="Doe")
+    assert rec_s.surname.value == "Doe"
+    assert "John Doe" in str(rec_s)
+    rec_s.add_surname("Smith")
+    assert rec_s.surname.value == "Smith"
+    rec_s.add_surname(None)
+    assert rec_s.surname is None
+    d_s = rec_s.to_dict()
+    assert d_s["surname"] is None
+    rec_s2 = Record("John", surname="Doe")
+    d_s2 = rec_s2.to_dict()
+    assert d_s2["surname"] == "Doe"
+    restored_s = Record.from_dict(d_s2)
+    assert restored_s.surname.value == "Doe"
+
     # --- Record.add_birthday ---
     record = Record("John")
     assert record.birthday is None
@@ -84,11 +100,16 @@ def run_tests():
     assert d["name"] == "John"
     assert "1234567890" in d["phones"]
     assert d["birthday"] == "15.06.1990"
+    assert "id" in d
+    assert "created_at" in d
+    assert "updated_at" in d
 
     restored = Record.from_dict(d)
+    assert restored.id == record.id
     assert restored.name.value == "John"
     assert restored.find_phone("1234567890") == "1234567890"
     assert str(restored.birthday) == "15.06.1990"
+    assert restored.created_at == record.created_at
 
     # --- Email validation ---
     e = Email("user@example.com")
