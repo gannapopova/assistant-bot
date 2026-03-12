@@ -72,6 +72,10 @@ def _wizard_add_contact(book: AddressBook):
         return
     name = name.strip()
 
+    surname = questionary.text("Surname (optional):").ask()
+    if surname is None:
+        return
+
     phone = questionary.text(
         "Phone:",
         validate=lambda v: True if (v.isdigit() and len(v) == 10) else "Phone must be 10 digits",
@@ -79,10 +83,8 @@ def _wizard_add_contact(book: AddressBook):
     if phone is None:
         return
 
-    record = book.find(name)
-    if record is None:
-        record = Record(name)
-        book.add_record(record)
+    record = Record(name, surname=surname.strip() or None)
+    book.add_record(record)
     record.add_phone(phone)
     book.save_record(record)
 
@@ -173,25 +175,32 @@ def _wizard_edit_contact(book: AddressBook):
         _pause()
         return
 
-    name = questionary.select(
-        "Select contact:",
-        choices=list(book.data.keys()) + ["Cancel"],
-    ).ask()
-    if name is None or name == "Cancel":
+    records = list(book.data.values())
+    choices = [r.name.value for r in records] + ["Cancel"]
+    selected_name = questionary.select("Select contact:", choices=choices).ask()
+    if selected_name is None or selected_name == "Cancel":
         return
 
-    record = book.find(name)
+    record = next(r for r in records if r.name.value == selected_name)
 
     while True:
         choice = questionary.select(
-            f"Edit {name}:",
-            choices=["Phone", "Email", "Birthday", "Address", "Done"],
+            f"Edit {record.name.value}:",
+            choices=["Phone", "Surname", "Email", "Birthday", "Address", "Done"],
         ).ask()
 
         if choice is None or choice == "Done":
             break
         elif choice == "Phone":
             _edit_phone(record, book)
+        elif choice == "Surname":
+            val = questionary.text(
+                f"Surname (current: {record.surname or 'none'}):"
+            ).ask()
+            if val is not None:
+                record.add_surname(val.strip() or None)
+                book.save_record(record)
+                _print(f"{Fore.BLUE}Surname updated.")
         elif choice == "Email":
             val = questionary.text(
                 f"New email (current: {record.email or 'none'}):"
@@ -268,7 +277,7 @@ def _edit_phone(record: Record, book: AddressBook):
         if old:
             record.remove_phone(old)
             if not record.phones:
-                book.delete(record.name.value)
+                book.delete_by_id(record.id)
                 _print(f"{Fore.BLUE}Phone removed. Contact deleted (no phones left).")
                 return
             book.save_record(record)
@@ -308,17 +317,17 @@ def _delete_contact(book: AddressBook):
         _pause()
         return
 
-    name = questionary.select(
-        "Select contact to delete:",
-        choices=list(book.data.keys()) + ["Cancel"],
-    ).ask()
-    if name is None or name == "Cancel":
+    records = list(book.data.values())
+    choices = [r.name.value for r in records] + ["Cancel"]
+    selected_name = questionary.select("Select contact to delete:", choices=choices).ask()
+    if selected_name is None or selected_name == "Cancel":
         return
 
-    confirmed = questionary.confirm(f"Delete '{name}'?", default=False).ask()
+    record = next(r for r in records if r.name.value == selected_name)
+    confirmed = questionary.confirm(f"Delete '{selected_name}'?", default=False).ask()
     if confirmed:
-        book.delete(name)
-        _print(f"{Fore.BLUE}Contact '{name}' deleted.")
+        book.delete_by_id(record.id)
+        _print(f"{Fore.BLUE}Contact '{selected_name}' deleted.")
         _pause()
 
 

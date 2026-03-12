@@ -14,6 +14,10 @@ class Name(Field):
     pass
 
 
+class Surname(Field):
+    pass
+
+
 class Phone(Field):
     def __init__(self, value):
         if not value.isdigit() or len(value) != 10:
