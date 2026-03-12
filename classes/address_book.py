@@ -111,14 +111,9 @@ class AddressBook(UserDict):
         self._load()
 
     def _load(self):
-        needs_migration = False
         for contact in self._repo.get_all():
-            if "id" not in contact:
-                needs_migration = True
             record = Record.from_dict(contact)
             self.data[record.id] = record
-        if needs_migration:
-            self._repo.save_all([r.to_dict() for r in self.data.values()])
 
     def add_record(self, record: Record):
         self.data[record.id] = record
