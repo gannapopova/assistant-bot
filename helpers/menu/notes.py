@@ -69,9 +69,9 @@ def _wizard_edit_note(notebook: NoteBook):
     choices = [
         questionary.Choice(title=f"[{n.id[:8]}] {n.text[:50]}", value=n.id)
         for n in notes
-    ] + [questionary.Choice(title="Cancel", value=None)]
+    ] + ["Cancel"]
     selected_id = questionary.select("Select note:", choices=choices).ask()
-    if selected_id is None:
+    if selected_id is None or selected_id == "Cancel":
         return
 
     note = next((n for n in notes if n.id == selected_id), None)
@@ -136,16 +136,16 @@ def _delete_note(notebook: NoteBook):
     choices = [
         questionary.Choice(title=f"[{n.id[:8]}] {n.text[:50]}", value=n.id)
         for n in notes
-    ] + [questionary.Choice(title="Cancel", value=None)]
+    ] + ["Cancel"]
     selected_id = questionary.select("Select note to delete:", choices=choices).ask()
-    if selected_id is None:
+    if selected_id is None or selected_id == "Cancel":
         return
 
     note = next((n for n in notes if n.id == selected_id), None)
     if not note:
         return
 
-    confirmed = questionary.confirm(f"Delete this note?", default=False).ask()
+    confirmed = questionary.confirm("Delete this note?", default=False).ask()
     if confirmed:
         notebook.delete(note.id)
         _print(f"{Fore.BLUE}Note deleted.")
