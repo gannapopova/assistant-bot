@@ -139,11 +139,20 @@ def _wizard_edit_contact(book: AddressBook):
     while True:
         choice = questionary.select(
             f"Edit {record.name.value}:",
-            choices=["Phone", "Surname", "Email", "Birthday", "Address", "Done"],
+            choices=["Name", "Surname", "Phone", "Email", "Birthday", "Address", "Done"],
         ).ask()
 
         if choice is None or choice == "Done":
             break
+        elif choice == "Name":
+            val = questionary.text(
+                f"New name (current: {record.name.value}):",
+                validate=lambda v: True if v.strip() else "Name cannot be empty",
+            ).ask()
+            if val and val.strip():
+                record.name.value = val.strip()
+                book.save_record(record)
+                _print(f"{Fore.BLUE}Name updated.")
         elif choice == "Phone":
             _edit_phone(record, book)
         elif choice == "Surname":
