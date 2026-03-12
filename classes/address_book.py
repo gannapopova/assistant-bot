@@ -1,17 +1,26 @@
+import uuid
 from collections import UserDict
 from datetime import datetime, timedelta
 
-from .fields import Name, Phone, Birthday, Email, Address
+from .fields import Name, Surname, Phone, Birthday, Email, Address
 from .repositories import ContactRepository
 
 
+def _now() -> str:
+    return datetime.now().strftime("%d.%m.%Y %H:%M")
+
+
 class Record:
-    def __init__(self, name):
+    def __init__(self, name, surname: str = None, record_id: str = None, created_at: str = None, updated_at: str = None):
+        self.id = record_id or str(uuid.uuid4())
         self.name = Name(name)
+        self.surname = Surname(surname) if surname else None
         self.phones = []
         self.birthday = None
         self.email = None
         self.address = None
+        self.created_at = created_at or _now()
+        self.updated_at = updated_at or self.created_at
 
     def add_phone(self, phone_value):
         self.phones.append(Phone(phone_value))
@@ -47,18 +56,31 @@ class Record:
     def edit_address(self, **kwargs):
         self.address = Address(**kwargs)
 
+    def add_surname(self, value: str):
+        self.surname = Surname(value) if value else None
+
     def to_dict(self) -> dict:
         return {
+            "id": self.id,
             "name": self.name.value,
+            "surname": self.surname.value if self.surname else None,
             "phones": [p.value for p in self.phones],
             "birthday": str(self.birthday) if self.birthday else None,
             "email": self.email.value if self.email else None,
             "address": self.address.to_dict() if self.address else None,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Record":
-        record = cls(data["name"])
+        record = cls(
+            data["name"],
+            surname=data.get("surname"),
+            record_id=data.get("id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
         for phone in data.get("phones", []):
             record.add_phone(phone)
         if data.get("birthday"):
@@ -71,7 +93,8 @@ class Record:
 
     def __str__(self):
         phones_str = "; ".join(str(p) for p in self.phones) or "no phones"
-        parts = [f"{self.name}: {phones_str}"]
+        full_name = f"{self.name} {self.surname}" if self.surname else str(self.name)
+        parts = [f"{full_name}: {phones_str}"]
         if self.birthday:
             parts.append(f"birthday: {self.birthday}")
         if self.email:
@@ -88,26 +111,41 @@ class AddressBook(UserDict):
         self._load()
 
     def _load(self):
+        needs_migration = False
         for contact in self._repo.get_all():
+            if "id" not in contact:
+                needs_migration = True
             record = Record.from_dict(contact)
-            self.data[record.name.value] = record
+            self.data[record.id] = record
+        if needs_migration:
+            self._repo.save_all([r.to_dict() for r in self.data.values()])
 
     def add_record(self, record: Record):
-        self.data[record.name.value] = record
+        self.data[record.id] = record
         self._repo.upsert(record.to_dict())
 
     def find(self, name: str) -> Record | None:
-        return self.data.get(name)
+        """Returns first record matching name (backward compat)."""
+        for record in self.data.values():
+            if record.name.value == name:
+                return record
+        return None
 
-    def delete(self, name: str) -> bool:
-        if name in self.data:
-            del self.data[name]
-            self._repo.delete(name)
+    def find_by_id(self, record_id: str) -> Record | None:
+        return self.data.get(record_id)
+
+    def find_all_by_name(self, name: str) -> list[Record]:
+        return [r for r in self.data.values() if r.name.value == name]
+
+    def delete_by_id(self, record_id: str) -> bool:
+        if record_id in self.data:
+            del self.data[record_id]
+            self._repo.delete(record_id)
             return True
         return False
 
     def save_record(self, record: Record):
-        """Call after mutating an existing record."""
+        record.updated_at = _now()
         self._repo.upsert(record.to_dict())
 
     def get_upcoming_birthdays(self, days: int = 7) -> list:
@@ -129,9 +167,9 @@ class AddressBook(UserDict):
             if 0 <= delta_days <= days:
                 congratulation_date = birthday_this_year
 
-                if congratulation_date.weekday() == 5:   # Saturday → Monday
+                if congratulation_date.weekday() == 5:
                     congratulation_date += timedelta(days=2)
-                elif congratulation_date.weekday() == 6:  # Sunday → Monday
+                elif congratulation_date.weekday() == 6:
                     congratulation_date += timedelta(days=1)
 
                 upcoming.append({

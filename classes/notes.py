@@ -2,12 +2,24 @@ import uuid
 from datetime import datetime
 
 
+def _now() -> str:
+    return datetime.now().strftime("%d.%m.%Y %H:%M")
+
+
 class Note:
-    def __init__(self, text: str, tags: list[str] = None, note_id: str = None, created_at: str = None):
+    def __init__(
+        self,
+        text: str,
+        tags: list[str] = None,
+        note_id: str = None,
+        created_at: str = None,
+        updated_at: str = None,
+    ):
         self.id = note_id or str(uuid.uuid4())
         self.text = text
         self.tags = tags or []
-        self.created_at = created_at or datetime.now().strftime("%d.%m.%Y %H:%M")
+        self.created_at = created_at or _now()
+        self.updated_at = updated_at or self.created_at
 
     def add_tag(self, tag: str):
         tag = tag.strip().lower()
@@ -23,6 +35,7 @@ class Note:
             "text": self.text,
             "tags": self.tags,
             "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
@@ -32,9 +45,9 @@ class Note:
             tags=data.get("tags", []),
             note_id=data["id"],
             created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
         )
 
     def __str__(self):
         tags_str = f"  [{', '.join(self.tags)}]" if self.tags else ""
-        short_id = self.id[:8]
-        return f"[{short_id}] {self.created_at}\n{self.text}{tags_str}"
+        return f"{self.created_at}\n{self.text}{tags_str}"
